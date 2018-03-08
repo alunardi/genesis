@@ -2,6 +2,7 @@
 import { get } from 'lodash'
 import { actions } from '../../model'
 import { setDotNotation } from 'genesis/support/transform'
+import { clone } from 'genesis/support/utils'
 
 export default {
   methods: {
@@ -98,18 +99,27 @@ export default {
       if (!Array.isArray(_actions)) {
         return
       }
+
       const buttons = _actions
         .filter(button => button.scopes && button.scopes.includes(this.scope))
         .map(button => {
           if (typeof button.validate === 'function') {
             button.disabled = button.validate(this.record, this.schemas, this)
           }
+          const id = button.id
+          if (this.operations[id]) {
+            button = Object.assign({}, button, this.operations[id])
+          }
           return button
         })
 
+      // noinspection JSCheckFunctionSignatures
       this.buttons.top = buttons.filter(button => button.positions.includes('top'))
+      // noinspection JSCheckFunctionSignatures
       this.buttons.middle = buttons.filter(button => button.positions.includes('middle'))
+      // noinspection JSCheckFunctionSignatures
       this.buttons.bottom = buttons.filter(button => button.positions.includes('bottom'))
+      // noinspection JSCheckFunctionSignatures
       this.buttons.floating = buttons.filter(button => button.positions.includes('floating'))
     },
     /**
@@ -123,7 +133,7 @@ export default {
      */
     handler (action) {
       if (typeof action.handler === 'function') {
-        action.handler(this.data, this.fields, this, action)
+        action.handler(this.data, this.$refs.form ? this.$refs.form.schemas : this.schemas, this, action)
       }
     },
     /**
@@ -131,18 +141,8 @@ export default {
      * @param {Object} options
      */
     button (id, options) {
-      const forEach = position => {
-        if (!Array.isArray(this.buttons[position])) {
-          return
-        }
-        this.buttons[position] = this.buttons[position].map(button => {
-          if (button.id === id) {
-            button = Object.assign({}, button, options)
-          }
-          return button
-        })
-      }
-      Object.keys(this.buttons).forEach(forEach)
+      this.operations[id] = Object.assign({}, this.operations[id], options)
+      this.renderActions()
     }
   }
 }

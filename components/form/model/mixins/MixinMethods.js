@@ -60,7 +60,6 @@ export default {
     updateComponents () {
       const components = {}
       if (this.tabs.length) {
-
         const reduces = (tab) => {
           return (accumulate, key) => {
             if (this.schemas[key].tab === tab.name) {
@@ -69,7 +68,6 @@ export default {
             return accumulate
           }
         }
-
         this.tabs.forEach(tab => {
           components[tab.name] = Object.keys(this.schemas).reduce(reduces(tab), [])
         })
@@ -79,7 +77,17 @@ export default {
     /**
      */
     updateSchemas () {
-      this.schemas = this.fields.reduce(reduce, {})
+      if (!Object.keys(this.schemas).length) {
+        this.schemas = this.fields.reduce(reduce, {})
+        return
+      }
+      const map = item => {
+        if (typeof this.schemas[item.field] !== 'undefined') {
+          return Object.assign({}, item, this.schemas[item.field])
+        }
+        return item
+      }
+      this.schemas = this.fields.map(map).reduce(reduce, {})
     },
     /**
      */
@@ -93,6 +101,16 @@ export default {
       }
       const record = Object.keys(this.schemas).reduce(reduces, {})
       this.setRecord(record)
+    },
+    /**
+     */
+    synchronizeRecord () {
+      Object.keys(this.schemas).forEach(key => {
+        if (typeof this.data[key] !== 'undefined') {
+          return
+        }
+        this.$set(this.data, key, this.schemas[key].default)
+      })
     },
     /**
      * @param {Object} record
@@ -163,8 +181,13 @@ export default {
      * @param {string} event
      * @param {Object} parameters
      */
-    fireEvent (field, event, parameters = {}, record = this.records, schemas = this.schemas) {
-      fireEvent(this.schemas, this.record, this, field, event, parameters)
+    fireEvent (field, event, parameters = {}) {
+      try {
+        fireEvent(this.schemas, this.record, this, field, event, parameters)
+      }
+      catch (e) {
+        console.error(e)
+      }
     },
     /**
      */
@@ -195,8 +218,16 @@ export default {
      */
     fireWatch (namespace, response = {}) {
       if (this.watches[namespace] && typeof this.watches[namespace] === 'function') {
-        this.watches[namespace](this.record, this.schemas, this, response)
+        try {
+          this.watches[namespace](this.record, this.schemas, this, response)
+        }
+        catch (e) {
+          console.error(e)
+        }
       }
+    },
+    button (id, options) {
+      this.$emit('form~button', id, options)
     }
   }
 }

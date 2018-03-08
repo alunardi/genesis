@@ -6,18 +6,19 @@
           <i class="material-icons" :class="{'disabled': disabled}" @click="openWidget">&#xE878;</i>
 
           <q-datetime
-            ref="widget"
-            v-model="widget"
-            :okLabel="okLabel"
-            :cancelLabel="cancelLabel"
-            :clearLabel="clearLabel"
-            v-bind="bind"></q-datetime>
+                  ref="widget"
+                  v-model="widget"
+                  :okLabel="okLabel"
+                  :cancelLabel="cancelLabel"
+                  :clearLabel="clearLabel"
+                  v-bind="bind"
+          />
 
           <input ref="input" class="input full-width" autocomplete="off"
                  v-mask="pattern"
                  v-model="model" v-bind="{id, name, placeholder, maxlength, disabled}"
                  @keypress="keypress" @keyup="keyup" @blur="blur" @focus="focus" @keydown.enter.stop.prevent="enter"
-                 @input="updateValue($event.target.value)"/>
+                 @input="updateValue(model, format)"/>
           <div class="input-bar"></div>
 
         </template>
@@ -25,8 +26,8 @@
         <template v-else>
           <div class="row justify-center">
             <q-inline-datetime
-              v-model="widget"
-              v-bind="bind">
+                    v-model="widget"
+                    v-bind="bind">
             </q-inline-datetime>
           </div>
         </template>
@@ -39,11 +40,11 @@
 </template>
 
 <script type="text/javascript">
-  import { View } from 'genesis'
-  import { VueMaskDirective } from 'v-mask'
+  import {View} from 'genesis'
+  import {VueMaskDirective} from 'v-mask'
   import Field from 'genesis/components/fields/components/base.vue'
   import FieldAbstract from 'genesis/components/fields/abstract'
-  import { formatDate } from 'genesis/support/format'
+  import {formatDate} from 'genesis/support/format'
 
   export default {
     extends: FieldAbstract,
@@ -57,7 +58,7 @@
     props: {
       type: {
         type: String,
-        default: () => 'date'
+        default: 'date'
       },
       min: {
         type: String
@@ -93,6 +94,7 @@
       pattern: '##/##/####',
       model: '',
       format: 'YYYY-MM-DD',
+      modelFormat: 'DD/MM/YYYY',
       monthNames: '', // View.get('locales.date.month')
       dayNames: '' // View.get('locales.date.days.week')
     }),
@@ -105,8 +107,8 @@
 
         let min, max
 
-        min = formatDate(this.min, null)
-        max = formatDate(this.max, null)
+        min = formatDate(this.min, false)
+        max = formatDate(this.max, false)
 
         return {min, max, type, monthNames, dayNames, format24h}
       }
@@ -123,21 +125,20 @@
           value = String(value)
         }
         if (!this.updated) {
-          this.model = formatDate(value)
+          this.model = formatDate(value, this.modelFormat)
         }
         this.updated = true
       },
       /**
        * @param {*} value
        */
-      updateValue (value) {
+      updateValue (value, format = undefined) {
         this.updated = true
         this.programmatically = false
-
-        this.$emit('input', value, this.programmatically)
+        this.emit(value, format)
       },
       updateWidget (value) {
-        this.widget = formatDate(value, false)
+        this.widget = this.convert(value)
       },
       /**
        */
@@ -145,15 +146,27 @@
         if (!this.disabled) {
           this.$refs.widget.open()
         }
+      },
+      emit (value, format = undefined) {
+        if (typeof format !== 'undefined') {
+          value = formatDate(value, format, this.modelFormat)
+        }
+        if (this.value !== value) {
+          this.$emit('input', value, this.programmatically)
+        }
+      },
+      convert (value) {
+        if (String(value).match(/[0-9]{2}\/[0-9]{2}\/[0-9]{4}$/g)) {
+          value = formatDate(value, this.format, this.modelFormat)
+        }
+
+        return formatDate(value, this.format)
       }
     },
     watch: {
       value (value) {
         this.updated = false
         this.programmatically = true
-        if (String(value).match(/[0-9]{2}\/[0-9]{2}\/[0-9]{4}$/g)) {
-          value = formatDate(value, 'YYYY-MM-DD', 'DD/MM/YYYY')
-        }
 
         this.applyValue(value)
         this.updateWidget(value, true)
@@ -163,7 +176,7 @@
         if (!value) {
           return
         }
-        value = formatDate(value, 'YYYY-MM-DD')
+        value = this.convert(value)
         this.applyValue(value)
         this.updateValue(value)
       }
@@ -174,7 +187,7 @@
     },
     mounted () {
       this.programmatically = true
-      this.applyValue(this.value)
+      this.applyValue(this.convert(this.value))
     }
   }
 </script>
